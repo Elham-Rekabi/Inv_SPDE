@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from torchdiffeq import odeint
+from SPDE.finite_differences import First_order_derivative,  Second_order_derivative
 
 class FokkerPlanck1D(nn.Module):
     def __init__(self, drift, diffusion, range_x =(-10, 10), num_points=1000, T = 10.0, dt=0.01, mean_0=0.0, std_0=1.0):
@@ -51,23 +52,7 @@ class FokkerPlanck1D(nn.Module):
 
         return p0
 
-    def First_order_derivative(self, f, dx):
 
-        dpdx = torch.zeros_like(f)
-        dpdx[1:-1] = (f[2:] - f[:-2]) / (2 * dx)
-        dpdx[0] = (f[1] - f[0]) / dx
-        dpdx[-1] = (f[-1] - f[-2]) / dx
-
-        return dpdx
-    
-    def Second_order_derivative(self, f, dx):
-
-        d2pdx2 = torch.zeros_like(f)
-        d2pdx2[1:-1] = (f[2:] - 2 * f[1:-1] + f[:-2]) / (dx ** 2)
-        d2pdx2[0] = 2 * (f[1] - f[0]) / (dx ** 2)  # Neumann BC 
-        d2pdx2[-1] = 2 * (-f[-1] + f[-2]) / (dx ** 2)  # Neumann BC
-
-        return d2pdx2
     
     def forward(self, t, p):
 
@@ -80,7 +65,7 @@ class FokkerPlanck1D(nn.Module):
         bp = b * p
         Dp = 0.5* sigma * sigma * p
 
-        dpdt = -self.First_order_derivative(bp, dx ) + self.Second_order_derivative(Dp, dx)
+        dpdt = -First_order_derivative(bp, dx ) + Second_order_derivative(Dp, dx)
         dpdt[0] = 0.0
         dpdt[-1] = 0.0
 
