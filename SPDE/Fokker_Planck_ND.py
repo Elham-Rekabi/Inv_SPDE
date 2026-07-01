@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 from torchdiffeq import odeint
+from SPDE.finite_differences import hessian, gradient
 
 class FokkerPlanckND(nn.Module):
     def __init__(self, drift, diffusion, range_x =[[-10, 10], [-10, 10]],  num_points=[100, 100], T = 10.0, dt=0.01, mean_0=[0.0, 0.0], cov_0=[[1.0, 0.0], [0.0, 1.0]]):
@@ -45,28 +46,78 @@ class FokkerPlanckND(nn.Module):
         return p0
 
     
-    
-    
-    
 
     def forward(self, t, p):
 
-        x = self.x # N dimensional 
+        
+        # p : (*grid)
+        x = self.x # (*grid)
+        spacing = self.spacing # list with length d
+        dim = len(spacing)
 
-        b = self.drift_fun(t, x, self.drift_params) # N dimensional
-        sigma = self.diffusion_fun(t, x, self.diffusion_params) # N by m dimensional
+        
+        # drift term
+        # \nabla.(bp) = (\nabla.b)p + b.\nabla p
 
-        dx = self.dx # spacing
+        b = self.drift_fun(t, x, self.drift_params) # (*grid x dim)
+        div_b = torch.zeros_like(p)
+        grad_p = gradient(p, spacing)
+
+        for i in range(0, dim):
+            dbi_dxi = gradient(b[...,i], spacing)[...,i]
+            div_b += dbi_dxi
+
+        b_dot_grad_p = torch.sum(b*grad_p, dim = -1)
+
+        div_bp = div_b * p + b_dot_grad_p
+
+        drift = -div_bp
 
 
-        bp = b * p
-        Dp = 0.5* sigma * sigma * p
+        # Divergence Term
 
-        dpdt = -self.First_order_derivative(bp, dx ) + self.Second_order_derivative(Dp, dx)
-        dpdt[0] = 0.0
-        dpdt[-1] = 0.0
+        sigma = self.diffusion_fun(t, x, self.diffusion_params)
+
+        D = 0.5* sigma @ sigma.T
+
+        Dp = D * p[..., None, None]
+        
+
+
+
+
+
+        
+
+
+
+
+
+
+        
+
+
+            
+
+
+
+    
+
+
+
+
+
+
+
+
+
 
         return dpdt
+
+
+        
+
+        
 
                     
 
